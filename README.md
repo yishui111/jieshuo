@@ -40,6 +40,8 @@ index-tts/
 
 GPT-SoVITS/
 ├── demo_jieshuo.py        激情解说演示（走本机 API 音色克隆）
+├── api_server.py          我写的引导式控制台服务（api_v2 之上加了网页控制台/健康检查/资源列表）
+├── webui/index.html       上面控制台的前端页面
 ├── 启动_WebUI.bat          推理 WebUI → http://127.0.0.1:9872
 ├── 启动_API.bat            HTTP API → http://127.0.0.1:9885（演示脚本依赖它）
 ├── 启动_演示.bat / 关闭服务.bat

@@ -23,6 +23,8 @@
 # ---- GPT-SoVITS（上游：https://github.com/RVC-Boss/GPT-SoVITS）----
 /GPT-SoVITS/*
 !/GPT-SoVITS/demo_jieshuo.py
+!/GPT-SoVITS/api_server.py
+!/GPT-SoVITS/webui/
 !/GPT-SoVITS/启动_WebUI.bat
 !/GPT-SoVITS/启动_API.bat
 !/GPT-SoVITS/启动_演示.bat
