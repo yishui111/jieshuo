@@ -1,0 +1,45 @@
+# =====================================================================
+# 本仓库只提交我自己写的脚本和文档。
+# 三个 TTS 引擎本体、.venv 虚拟环境、模型权重、生成的演示音频都不入库，
+# 按 README.md 重新部署。
+# =====================================================================
+
+# ---- CosyVoice 2（上游：https://github.com/FunAudioLLM/CosyVoice）----
+/CosyVoice/*
+!/CosyVoice/demo_jieshuo.py
+!/CosyVoice/启动_WebUI.bat
+!/CosyVoice/启动_演示.bat
+!/CosyVoice/关闭_WebUI.bat
+
+# ---- IndexTTS-2（上游：https://github.com/index-tts/index-tts）----
+/index-tts/*
+!/index-tts/demo_jieshuo.py
+!/index-tts/启动_WebUI.bat
+!/index-tts/启动_演示.bat
+!/index-tts/关闭_WebUI.bat
+!/index-tts/_diag_disk.py
+!/index-tts/_diag_startup.py
+
+# ---- GPT-SoVITS（上游：https://github.com/RVC-Boss/GPT-SoVITS）----
+/GPT-SoVITS/*
+!/GPT-SoVITS/demo_jieshuo.py
+!/GPT-SoVITS/启动_WebUI.bat
+!/GPT-SoVITS/启动_API.bat
+!/GPT-SoVITS/启动_演示.bat
+!/GPT-SoVITS/关闭服务.bat
+!/GPT-SoVITS/_run_test.bat
+!/GPT-SoVITS/requirements_win_deploy.txt
+
+# ---- 引擎环境与产物（本地部署时生成/下载，一律不入库）----
+.venv/
+venv/
+pretrained_models/
+checkpoints/
+asset/          # 参考音频放在各引擎目录的 asset/ 下，属个人素材，不入库
+演示音频/
+.workbuddy-ai/
+__pycache__/
+*.log
+
+# ---- 需求原稿不入库 ----
+部署文档.txt
