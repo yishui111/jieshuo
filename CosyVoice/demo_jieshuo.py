@@ -43,6 +43,11 @@ model = CosyVoice2(
 print(f"model loaded in {time.time() - t0:.1f}s, sample_rate={model.sample_rate}")
 
 PROMPT_WAV = os.path.join(ROOT_DIR, "asset/zero_shot_prompt.wav")
+if not os.path.exists(PROMPT_WAV):
+    raise FileNotFoundError(
+        f"参考音频不存在: {PROMPT_WAV}\n"
+        "请将任意 3~10 秒清晰人声录音放入 asset/zero_shot_prompt.wav"
+    )
 
 
 def synth(name, text, mode, **kwargs):
