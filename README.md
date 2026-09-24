@@ -1,101 +1,139 @@
-# 激情解说 TTS：CosyVoice 2 / IndexTTS-2 / GPT-SoVITS
+# 激情解说 · 端到端流水线（视频/文字 → 解说词 → 激情语音）
 
-需求很简单：给我一段解说词，用激情洋溢的声音解说出来（足球解说、游戏解说那种感觉），
-只要有文字就能解说。为此我选了三个 LLM 架构的语音合成大模型，全部本地部署、GPU 推理、
-完全离线、没有任何 API 收费：
+给它一个视频（或者不给视频，直接给一段文字），它就能产出一支**激情洋溢的解说音频**
+（足球解说、游戏解说那种感觉）。整条链路是：
 
-| # | 目录 | 引擎 | 出品方 | 强项 | 端口 |
-|---|------|------|--------|------|------|
-| 1 | `CosyVoice/` | CosyVoice 2（0.5B） | 阿里 FunAudioLLM | 自然语言指令控语气："用极其兴奋、激动、呐喊的语气解说" | 9600 |
-| 2 | `index-tts/` | IndexTTS-2 | 哔哩哔哩 | 情感向量（喜/怒/哀/惧…8 维）+ 情感文字描述 | 9601 |
-| 3 | `GPT-SoVITS/` | GPT-SoVITS v2 | RVC-Boss | 参考音频音色克隆：给一段录音就能用 TA 的音色解说 | 9872 / API 9885 |
+```
+输入（视频 / 主题文字）
+   │ ①视频理解：ffmpeg 抽帧 + 本地视觉模型(Ollama qwen3-vl)描述画面（给视频时才走）
+   ▼
+素材描述
+   │ ②生成解说词：约束文档 + 素材 → DeepSeek → 结构化解说词 JSON（每段带情感标注）
+   ▼
+解说词（解说音频/*.json / *.md，可手改后重新合成）
+   │ ③语音合成：逐段交给本地 IndexTTS-2.5，按情感标注带情绪朗读，再拼成一条音频
+   ▼
+解说音频（*.wav / *.mp3）
+```
 
-**这个仓库只提交我自己写的部分**——每个引擎目录里的 `demo_jieshuo.py`（激情解说演示脚本）、
-`启动_*.bat` / `关闭_*.bat` 启动脚本，以及根目录的文档。引擎源码、`.venv` 虚拟环境、
-模型权重（合计 20 GB 左右）都不进仓库，换电脑时按本文档重新部署一遍即可。
+对应需求的五步：
 
-日常使用方法（三个引擎怎么控语气、怎么换音色）看 [使用说明.md](使用说明.md)，
-本文只讲怎么从零装起来。
+| 步骤 | 实现 |
+|------|------|
+| 1. 寻找主要用于解说、能激情朗读的大模型 | **IndexTTS-2.5**（B站开源，当前情感表现最强的开源 TTS 之一：8 维情感向量 + 情感文字控制 + 零样本音色克隆） |
+| 2. 部署模型 | `index-tts\tts_server.py` 包装成 HTTP 服务（端口 9602），本地 GPU 推理，完全离线 |
+| 3. 编写约束文档 | `pipeline\约束文档.md`：严格约束解说词的输出 JSON 格式、情感词表、写作规则 |
+| 4. 用 DeepSeek 生成解说词 | `pipeline\script_gen.py`：约束文档作为 system prompt + 素材发给 DeepSeek，产出并校验解说词 JSON |
+| 5. 语音合成 | `pipeline\tts_client.py`：逐段带情感合成 + 拼接成片 |
 
-本机环境：Windows 10 / RTX 4080 16GB；显存 16GB 同一时间只跑一个引擎，跑第二个前先关窗口。
+没有 DeepSeek key 时，第 4 步自动回退到本地 Ollama（qwen3:14b）生成解说词，方便先跑通再配 key。
 
 ---
 
-## 一、仓库里有什么
-
-```
-CosyVoice/
-├── demo_jieshuo.py        激情解说演示（instruct2 模式：一句话指令控语气）
-├── 启动_WebUI.bat          WebUI → http://127.0.0.1:9600
-├── 启动_演示.bat           跑 demo_jieshuo.py，音频出在 演示音频\CosyVoice2\
-└── 关闭_WebUI.bat          按端口停进程
-
-index-tts/
-├── demo_jieshuo.py        激情解说演示（emo_text 情感文字 / emo_vector 8 维情感向量）
-├── 启动_WebUI.bat          WebUI → http://127.0.0.1:9601
-├── 启动_演示.bat
-├── 关闭_WebUI.bat
-├── _diag_disk.py          诊断：模型权重的磁盘读取速度
-└── _diag_startup.py       诊断：启动卡在哪一步
-
-GPT-SoVITS/
-├── demo_jieshuo.py        激情解说演示（走本机 API 音色克隆）
-├── api_server.py          我写的引导式控制台服务（api_v2 之上加了网页控制台/健康检查/资源列表）
-├── webui/index.html       上面控制台的前端页面
-├── 启动_WebUI.bat          推理 WebUI → http://127.0.0.1:9872
-├── 启动_API.bat            HTTP API → http://127.0.0.1:9885（演示脚本依赖它）
-├── 启动_演示.bat / 关闭服务.bat
-├── _run_test.bat          部署自测
-└── requirements_win_deploy.txt    我整理的 Windows 部署依赖清单（含编译处理说明）
-```
-
-引擎本体、`.venv/`、`pretrained_models/`、`checkpoints/`、参考音频 `asset/`、
-生成的 `演示音频/` 都不入库。
-
----
-
-## 二、从零部署（换电脑照着做）
-
-### 0. 基础环境与网络
-
-- Windows 10/11 x64 + NVIDIA 显卡（建议 8GB 显存以上）
-- git、Python（下面每个引擎用自己的小版本，见各节）
-- 网络准备：GitHub 走 `https://ghfast.top/` 前缀代理；pip 用阿里云/清华镜像；
-  模型下载——CosyVoice2、IndexTTS-2 走 **ModelScope**，GPT-SoVITS 走 **hf-mirror.com**。
-- Windows 上**不需要 conda**：文本正则化我已改用纯 Python 的 `wetext`（不是 WeTextProcessing）。
-
-### 1. CosyVoice 2（Python 3.10 + torch 2.3.1 cu121）
+## 一、快速开始（3 步出音频）
 
 ```bat
-git clone https://github.com/FunAudioLLM/CosyVoice.git CosyVoice
-cd CosyVoice
-git clone https://github.com/FunAudioLLM/Matcha-TTS.git third_party/Matcha-TTS
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+:: 1. 启动解说 TTS 服务（首次启动要把模型读进显存，黑框没输出属正常，等它）
+启动_解说TTS服务.bat
+
+:: 2. （可选）把你的 DeepSeek API Key 填进 pipeline\config.yaml 的 deepseek.api_key
+::    （新 clone 没有 config.yaml：先 copy pipeline\config.example.yaml pipeline\config.yaml）
+::    不填也能跑，解说词由本地 Ollama 生成（效果稍弱）
+
+:: 3. 双击一键生成，按提示输入主题文字，或直接把视频文件拖进窗口
+解说_一键生成.bat
 ```
 
-模型（约 4.6 GB，ModelScope 官方仓库 `iic/CosyVoice2-0.5B`）下载到
-`pretrained_models\CosyVoice2-0.5B\`。
-参考音频放 `asset\zero_shot_prompt.wav`（任意 3~10 秒清晰人声）。
+命令行用法：
 
-验收：`启动_WebUI.bat` → 9600 出页面；`启动_演示.bat` 出第一支解说音频。
+```bat
+cd pipeline
+..\index-tts\.venv\Scripts\python.exe jieshuo.py --text "欧冠半决赛皇马补时逆转拜仁" --duration 60 --mp3
+..\index-tts\.venv\Scripts\python.exe jieshuo.py --video "D:\比赛录像.mp4" --duration 90
+..\index-tts\.venv\Scripts\python.exe jieshuo.py --text "..." --no-tts     :: 只要解说词
+..\index-tts\.venv\Scripts\python.exe jieshuo.py --script "解说音频\xxx.json"  :: 改完解说词重新合成
+```
 
-### 2. IndexTTS-2（Python 3.11 + torch 2.8.0 cu128）
+产物都在根目录 `解说音频\`：`*.json`（解说词，可手改）、`*.md`（可读版）、`*.wav/.mp3`（成片）。
+
+## 二、目录结构（本次新增部分）
+
+```
+pipeline\                      ★ 解说流水线（自己写的，全部入库）
+├── 约束文档.md                 步骤3：给 DeepSeek 的输出格式约束（改风格/格式就改它）
+├── script_gen.py              步骤4：DeepSeek 生成解说词（含本地 Ollama 兜底）
+├── video_info.py              视频输入：ffmpeg 抽帧 + Ollama 视觉模型理解画面
+├── tts_client.py              步骤5：逐段合成 + 拼接成片
+├── jieshuo.py                 一键入口（交互式 / 命令行）
+├── config.yaml                本机配置（DeepSeek key、音色、时长等）——不入库
+├── config.example.yaml        配置模板
+└── 解说音频\                  产物目录（不入库）
+
+index-tts\                     ★ TTS 引擎目录（上游代码不入库，只入库自己写的）
+├── tts_server.py              解说 TTS HTTP 服务（/health /tts /unload）
+├── 启动_TTS服务.bat            启动上面的服务（端口 9602）
+├── 关闭_TTS服务.bat
+├── checkpoints\IndexTTS-2.5\  模型权重（约 5.2GB，ModelScope 下载）
+└── asset\zero_shot_prompt.wav 解说音色参考（换成任意 3~10 秒人声即可换音色）
+
+解说_一键生成.bat               根目录：一键解说（交互式）
+启动_解说TTS服务.bat            根目录：启动 TTS 服务的快捷方式
+```
+
+## 三、配置说明（pipeline\config.yaml）
+
+| 配置 | 说明 |
+|------|------|
+| `deepseek.api_key` | 你的 DeepSeek API Key（https://platform.deepseek.com 申请）；留空则用环境变量 `DEEPSEEK_API_KEY`，再没有就走本地 Ollama 兜底 |
+| `deepseek.model` | 默认 `deepseek-chat` |
+| `deepseek.fallback_ollama` | 本地兜底模型（默认 qwen3.5:4b，需 `ollama pull qwen3.5:4b`；显存充裕可换 qwen3:14b） |
+| `tts.spk_audio` | 音色参考音频，换文件即换音色（激情男解说/女解说随你换） |
+| `video.vlm_model` | 视频理解用的视觉模型，默认 `qwen3-vl:8b`，需 `ollama pull qwen3-vl:8b` |
+| `output.dir` | 产物目录，默认根目录 `解说音频\`（相对 pipeline/ 写作 `../解说音频`） |
+
+## 四、约束文档怎么改（控制解说词的样子）
+
+`pipeline\约束文档.md` 就是发给 DeepSeek 的"格式法律"：
+
+- **输出结构**：`{"title": ..., "segments": [{"text","emotion","intensity"},...]}`；
+- **情感词表**：兴奋/喜悦/愤怒/哀伤/恐惧/厌恶/低落/惊喜/平静 九选一，`intensity` 0~1
+  —— 这两项目会直接换成 IndexTTS-2.5 的 8 维情感向量（喜/怒/哀/惧/厌恶/低落/惊喜/平静）控制朗读情绪；
+- **写作规则**：每段 20~40 字短句、口语化、节奏起伏、禁 markdown/emoji 等；
+- 想改风格（电竞/体育/影视解说）、改段长、改 JSON 结构，直接编辑这个文档即可，代码不用动。
+
+## 五、引擎部署（换电脑照着做）
+
+基础环境：Windows 10/11 x64、NVIDIA 显卡（≥8GB 显存）、git、Python、ffmpeg（并加入 PATH）。
+网络：git 走 `https://ghfast.top/` 代理，pip 用阿里云/清华镜像，模型走 ModelScope。
+
+### 1. IndexTTS-2.5（解说 TTS，Python 3.11 + torch 2.8.0 cu128）
 
 ```bat
 git clone https://github.com/index-tts/index-tts.git index-tts
 cd index-tts
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+.venv\Scripts\pip install modelscope ninja
+.venv\Scripts\python -c "from modelscope import snapshot_download; snapshot_download('IndexTeam/IndexTTS-2.5', local_dir='checkpoints/IndexTTS-2.5')"
 ```
 
-模型（约 12 GB）从 ModelScope / hf-mirror 下载 `IndexTTS-2` 全套到
-`checkpoints\IndexTTS-2\`；参考音频同上放 `asset\`。
+参考音频放 `asset\zero_shot_prompt.wav`（任意 3~10 秒清晰人声）。
+验收：`启动_TTS服务.bat` → 浏览器打开 `http://127.0.0.1:9602/health`，`"ok": true` 即就绪。
 
-验收：`启动_WebUI.bat` → 9601；`启动_演示.bat`。
-启动异常时先跑 `_diag_startup.py`、`_diag_disk.py` 看卡点和磁盘读取速度。
+> 首次启动会自动下载 w2v-bert、BigVGAN 等辅助模型（一次性，约 2.5GB），比较耗时；
+> 之后每次启动约 3~5 分钟（机械盘读权重的速度决定）。
 
-### 3. GPT-SoVITS（Python 3.10 + torch 2.5.1 cu124）
+### 2. 解说流水线（复用 index-tts 的 venv）
+
+依赖已包含在 index-tts 的 venv 里（requests / pyyaml / numpy / soundfile），
+另外需要系统装有 **ffmpeg**（视频抽帧、mp3 转码用）。视觉模型（只有给视频输入才需要）：
+
+```bat
+ollama pull qwen3-vl:8b
+ollama pull qwen3.5:4b   :: 本地兜底生成解说词用（有 DeepSeek key 可不装）
+```
+
+### 3. GPT-SoVITS（可选，音色克隆备用引擎，Python 3.10 + torch 2.5.1 cu124）
 
 ```bat
 git clone https://github.com/RVC-Boss/GPT-SoVITS.git GPT-SoVITS
@@ -104,22 +142,16 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements_win_deploy.txt
 ```
 
-依赖里的坑都整理在 `requirements_win_deploy.txt` 注释里：`opencc` 用官方 wheel
-（不要 `--no-binary`）；`openai-whisper`、`pyopenjtalk` 两个老包要本地构建
-（setuptools<81 + cmake，照注释走）。
+依赖里的坑都整理在 `requirements_win_deploy.txt` 注释里。预训练底模（hf-mirror 下载 v2 全套）
+放 `GPT_SoVITS\pretrained_models\`。验收：`启动_API.bat` → 9885。
 
-预训练底模（约 1.1 GB，hf-mirror 下载 GPT-SoVITS v2 全套）放
-`GPT_SoVITS\pretrained_models\`。
+## 六、常见问题
 
-验收：`启动_API.bat` → 9885；再 `启动_演示.bat`（演示走 API 音色克隆）。
-
----
-
-## 三、常见问题
-
-- **CUDA out of memory**：16GB 显存同时只能跑一个引擎，关掉另一个的窗口再启动。
-- **首次启动慢（1~4 分钟）**：模型从机械盘读进显存，属正常；首次合成还有 CUDA 预热。
-- **换音色**：把 `demo_jieshuo.py` / WebUI 里的参考音频换成任意 3~10 秒清晰人声即可
-  （IndexTTS-2 / GPT-SoVITS 都是零样本克隆）。
-- **演示音频**：`演示音频\` 是运行 `demo_jieshuo.py` 的产物，仓库里没有，
-  想听就自己跑一遍演示脚本生成。
+- **解说音频没声音 / 报 TTS 服务未就绪**：先启动 `启动_解说TTS服务.bat` 并等 `/health` 返回 `"ok":true`。
+- **CUDA out of memory**：16GB 显存同一时间只跑一个引擎；另外视频理解（Ollama 视觉模型）
+  和 TTS 都要显存，流水线会在视觉阶段结束后自动卸载模型再合成，但别同时开着其他大模型服务。
+- **首次合成慢 / 首次启动慢**：模型从盘读进显存 + CUDA 预热，属正常；机械盘上更明显。
+- **解说词不满意**：直接改 `解说音频\*.json` 后 `--script` 重新合成，不用重新生成；
+  或改 `pipeline\约束文档.md` 调整文风后重新生成。
+- **想换音色**：替换 `index-tts\asset\zero_shot_prompt.wav` 为任意 3~10 秒清晰人声即可（零样本克隆）。
+- **演示音频**：`演示音频\` 是历史演示脚本的产物，不入库；本流水线产物在根目录 `解说音频\`。

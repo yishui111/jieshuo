@@ -14,11 +14,25 @@
 # ---- IndexTTS-2（上游：https://github.com/index-tts/index-tts）----
 /index-tts/*
 !/index-tts/demo_jieshuo.py
+!/index-tts/tts_server.py
 !/index-tts/启动_WebUI.bat
 !/index-tts/启动_演示.bat
+!/index-tts/启动_TTS服务.bat
 !/index-tts/关闭_WebUI.bat
+!/index-tts/关闭_TTS服务.bat
 !/index-tts/_diag_disk.py
 !/index-tts/_diag_startup.py
+
+# ---- 解说流水线（自己写的部分全部入库；配置与产物除外）----
+/pipeline/*
+!/pipeline/约束文档.md
+!/pipeline/jieshuo.py
+!/pipeline/script_gen.py
+!/pipeline/video_info.py
+!/pipeline/tts_client.py
+!/pipeline/config.example.yaml
+/pipeline/config.yaml      # 里面有 DeepSeek API key，不入库
+/pipeline/segments/
 
 # ---- GPT-SoVITS（上游：https://github.com/RVC-Boss/GPT-SoVITS）----
 /GPT-SoVITS/*
@@ -39,9 +53,11 @@ pretrained_models/
 checkpoints/
 asset/          # 参考音频放在各引擎目录的 asset/ 下，属个人素材，不入库
 演示音频/
+解说音频/
 .workbuddy-ai/
 __pycache__/
 *.log
+_smoke_req.json
 
 # ---- 需求原稿不入库 ----
 部署文档.txt
