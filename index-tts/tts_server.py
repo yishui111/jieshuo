@@ -46,7 +46,8 @@ def parse_args():
     p.add_argument("--model_dir", default=os.path.join("checkpoints", "IndexTTS-2.5"))
     p.add_argument("--port", type=int, default=9602)
     p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--qwen_emo", action="store_true", default=True, help="加载 QwenEmotion（emo_text 需要）")
+    p.add_argument("--qwen_emo", action="store_true", default=False,
+                   help="加载 QwenEmotion（仅 emo_text 情感文字模式需要；默认关闭以省约1GB内存/显存，流水线用情感向量模式无需加载）")
     p.add_argument("--no_qwen_emo", dest="qwen_emo", action="store_false")
     return p.parse_args()
 
