@@ -177,8 +177,11 @@ def run_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
                 n_have = len([l for l in open(inp_text, encoding="utf-8").read().splitlines() if l.strip()])
                 _log(logf, f"已有标注文件，跳过 ASR：{inp_text}（{n_have} 条）")
             else:
-                cmd = f'"{GSV_PY}" -s tools/asr/funasr_asr.py -i "{sliced_dir}" -o "{asr_dir}" -s large -l zh -p float16'
-                _run_cmd(logf, cmd, GSV_ROOT, env, "ASR标注", timeout_s=4 * 3600)
+                # ASR 固定走 CPU：GPU 上新起进程做 CUDA 初始化在本机偶发无声崩溃，CPU 稳定且耗时可接受
+                asr_env = env.copy()
+                asr_env["CUDA_VISIBLE_DEVICES"] = ""
+                cmd = f'"{GSV_PY}" -s tools/asr/funasr_asr.py -i "{sliced_dir}" -o "{asr_dir}" -s large -l zh -p float32'
+                _run_cmd(logf, cmd, GSV_ROOT, asr_env, "ASR标注", timeout_s=4 * 3600)
                 lists = glob.glob(os.path.join(asr_dir, "*.list"))
                 if not lists:
                     raise RuntimeError("ASR 未产出标注文件")
@@ -198,6 +201,7 @@ def run_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
                 "opt_dir": opt_dir, "bert_pretrained_dir": BERT_DIR,
                 "cnhubert_base_dir": HUBERT_DIR, "is_half": "True",
                 "pretrained_s2G": S2_PRETRAINED_G,
+                "s2config_path": os.path.join(GSV_ROOT, "GPT_SoVITS", "configs", "s2.json"),
                 "i_part": "0", "all_parts": "1", "_CUDA_VISIBLE_DEVICES": "0",
             }
             steps = [
@@ -216,14 +220,18 @@ def run_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
                 run_env.update(common)
                 _run_cmd(logf, f'"{GSV_PY}" -s {script}', GSV_ROOT, run_env, step_name,
                          timeout_s=4 * 3600)
-            # 合并 1A 分片输出
-            part_txt = os.path.join(opt_dir, "2-name2text-0.txt")
-            full_txt = os.path.join(opt_dir, "2-name2text.txt")
-            if os.path.isfile(part_txt):
-                os.replace(part_txt, full_txt)
+            # 合并分片输出（1A 与 1C 都按分片写文件）
+            for part_name, full_name in [("2-name2text-0.txt", "2-name2text.txt"),
+                                         ("6-name2semantic-0.tsv", "6-name2semantic.tsv")]:
+                part = os.path.join(opt_dir, part_name)
+                if os.path.isfile(part):
+                    os.replace(part, os.path.join(opt_dir, full_name))
 
             # 5) SoVITS (s2) 微调
             _state["step"] = "SoVITS微调"
+            os.makedirs(os.path.join(opt_dir, "logs_s2_v2"), exist_ok=True)  # s2_train 会往里拷底模
+            os.makedirs(os.path.join(GSV_ROOT, "SoVITS_weights_v2"), exist_ok=True)  # 权重保存目录
+            os.makedirs(os.path.join(GSV_ROOT, "GPT_weights_v2"), exist_ok=True)
             with open(os.path.join(GSV_ROOT, "GPT_SoVITS", "configs", "s2.json"),
                       encoding="utf-8") as f:
                 s2cfg = json.load(f)
@@ -247,6 +255,7 @@ def run_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
 
             # 6) GPT (s1) 微调
             _state["step"] = "GPT微调"
+            os.makedirs(os.path.join(opt_dir, "logs_s1_v2"), exist_ok=True)
             import yaml as _yaml
             with open(os.path.join(GSV_ROOT, "GPT_SoVITS", "configs", "s1longer-v2.yaml"),
                       encoding="utf-8") as f:
@@ -277,7 +286,8 @@ def run_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
             if not sovits_w or not gpt_w:
                 raise RuntimeError("训练完成但没找到权重文件")
             ref_audio, ref_text = "", ""
-            for line in open(full_txt, encoding="utf-8").read().splitlines():
+            text_list_path = os.path.join(opt_dir, "2-name2text.txt")
+            for line in open(text_list_path, encoding="utf-8").read().splitlines():
                 parts = line.split("|")
                 if len(parts) >= 4:
                     wav_path, text = parts[0], parts[3].strip()
