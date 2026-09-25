@@ -1,63 +1,50 @@
 # =====================================================================
 # 本仓库只提交我自己写的脚本和文档。
-# 三个 TTS 引擎本体、.venv 虚拟环境、模型权重、生成的演示音频都不入库，
-# 按 README.md 重新部署。
+# 引擎本体、.venv 虚拟环境、模型权重、素材与产物一律不入库，按 README 重新部署。
 # =====================================================================
 
-# ---- CosyVoice 2（上游：https://github.com/FunAudioLLM/CosyVoice）----
-/CosyVoice/*
-!/CosyVoice/demo_jieshuo.py
-!/CosyVoice/启动_WebUI.bat
-!/CosyVoice/启动_演示.bat
-!/CosyVoice/关闭_WebUI.bat
-
-# ---- IndexTTS-2（上游：https://github.com/index-tts/index-tts）----
+# ---- IndexTTS-2.5（上游：https://github.com/index-tts/index-tts）----
 /index-tts/*
-!/index-tts/demo_jieshuo.py
 !/index-tts/tts_server.py
-!/index-tts/启动_WebUI.bat
-!/index-tts/启动_演示.bat
-!/index-tts/启动_TTS服务.bat
-!/index-tts/关闭_WebUI.bat
-!/index-tts/关闭_TTS服务.bat
-!/index-tts/_diag_disk.py
-!/index-tts/_diag_startup.py
-
-# ---- 解说流水线（自己写的部分全部入库；配置与产物除外）----
-/pipeline/*
-!/pipeline/约束文档.md
-!/pipeline/jieshuo.py
-!/pipeline/script_gen.py
-!/pipeline/video_info.py
-!/pipeline/tts_client.py
-!/pipeline/config.example.yaml
-/pipeline/config.yaml      # 里面有 DeepSeek API key，不入库
-/pipeline/segments/
 
 # ---- GPT-SoVITS（上游：https://github.com/RVC-Boss/GPT-SoVITS）----
 /GPT-SoVITS/*
-!/GPT-SoVITS/demo_jieshuo.py
 !/GPT-SoVITS/api_server.py
 !/GPT-SoVITS/webui/
-!/GPT-SoVITS/启动_WebUI.bat
-!/GPT-SoVITS/启动_API.bat
-!/GPT-SoVITS/启动_演示.bat
-!/GPT-SoVITS/关闭服务.bat
-!/GPT-SoVITS/_run_test.bat
 !/GPT-SoVITS/requirements_win_deploy.txt
 
-# ---- 引擎环境与产物（本地部署时生成/下载，一律不入库）----
+# ---- 统一工作台（自己写的部分全部入库；配置与产物除外）----
+/工作台/*
+!/工作台/server.py
+!/工作台/train_voice.py
+!/工作台/deepseek_client.py
+!/工作台/engines.py
+!/工作台/约束文档.md
+!/工作台/config.example.yaml
+!/工作台/static/
+/工作台/config.yaml       # 里面有 DeepSeek API key，不入库
+/工作台/voice_config.json
+/工作台/outputs/
+/工作台/logs/
+/工作台/训练数据/
+/工作台/model_cache/
+
+# ---- 训练素材（用户录音不入库，保留说明文件）----
+/训练素材/*
+!/训练素材/放录音到这里.txt
+
+# ---- 环境与产物（本地部署时生成/下载，一律不入库）----
 .venv/
 venv/
 pretrained_models/
 checkpoints/
-asset/          # 参考音频放在各引擎目录的 asset/ 下，属个人素材，不入库
-演示音频/
-解说音频/
-.workbuddy-ai/
+asset/
+hf_cache/
+logs/
 __pycache__/
 *.log
-_smoke_req.json
+演示音频/
+解说音频/
 
 # ---- 需求原稿不入库 ----
 部署文档.txt

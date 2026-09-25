@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>激情解说 · 工作台</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181b22; --panel2:#1f232d; --line:#2a2f3a;
+    --text:#e8eaf0; --muted:#9aa3b2; --acc:#f59e0b; --acc2:#3b82f6; --ok:#22c55e; --bad:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:18px;margin:0}
+  .chips{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+  .chip{padding:3px 10px;border-radius:20px;font-size:12px;background:var(--panel2);border:1px solid var(--line)}
+  .chip.ok{color:var(--ok);border-color:var(--ok)}
+  .chip.bad{color:var(--bad);border-color:var(--bad)}
+  .chip.warn{color:var(--acc);border-color:var(--acc)}
+  nav{display:flex;gap:4px;padding:8px 20px 0}
+  nav button{background:var(--panel);border:1px solid var(--line);border-bottom:none;color:var(--muted);
+    padding:9px 22px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px}
+  nav button.on{color:var(--text);background:var(--panel2);border-color:var(--acc);font-weight:600}
+  main{padding:16px 20px 40px}
+  .grid{display:grid;grid-template-columns:minmax(340px,1fr) minmax(380px,1.2fr);gap:16px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 10px;color:var(--acc)}
+  .card h3{font-size:13px;margin:14px 0 8px;color:var(--acc2)}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  textarea,input[type=text],select{width:100%;background:var(--panel2);border:1px solid var(--line);
+    color:var(--text);border-radius:6px;padding:8px 10px;font:inherit;resize:vertical}
+  textarea.small{height:120px}
+  input[type=range]{width:100%}
+  .btn{display:inline-block;background:var(--acc);border:none;color:#111;font-weight:700;
+    padding:9px 18px;border-radius:7px;cursor:pointer;font-size:14px;margin-top:10px}
+  .btn.blue{background:var(--acc2);color:#fff}
+  .btn.gray{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;align-items:center}
+  .row > *{flex:1}
+  .seg{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:8px;background:var(--panel2)}
+  .seg .emo{font-size:12px;color:var(--acc);margin-right:8px}
+  .seg .txt{white-space:pre-wrap}
+  .muted{color:var(--muted);font-size:12px}
+  .log{background:#0b0d10;border:1px solid var(--line);border-radius:8px;padding:10px;
+    height:200px;overflow:auto;font:12px/1.5 Consolas,monospace;white-space:pre-wrap}
+  audio{width:100%;margin-top:10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td,th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+  .pill{padding:2px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-size:12px}
+  .hide{display:none}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--acc);border-top-color:transparent;
+    border-radius:50%;animation:r 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎤 激情解说 · 工作台</h1>
+  <div class="chips" id="chips"></div>
+</header>
+
+<nav>
+  <button id="tab1" class="on" onclick="switchTab(1)">项目一 · 专属声音（训练 + 朗读）</button>
+  <button id="tab2" onclick="switchTab(2)">项目二 · 情感解说（激情洋溢）</button>
+</nav>
+
+<main>
+  <div class="grid">
+    <!-- 左列：素材与约束 -->
+    <div>
+      <div class="card">
+        <h2>① 故事 / 素材 → 解说词</h2>
+        <label>把故事（或素材描述）粘进来，DeepSeek 会按约束文档改写成激情解说词</label>
+        <textarea id="story" class="small" placeholder="例：一支学生团队连续熬夜三个月，终于在全国机器人大赛决赛逆转夺冠……"></textarea>
+        <div class="row">
+          <div>
+            <label>解说风格</label>
+            <select id="style">
+              <option>激情解说（足球/电竞赛事解说风格）</option>
+              <option>电竞解说</option>
+              <option>体育新闻播报</option>
+              <option>纪录片解说</option>
+              <option>带货激情讲解</option>
+            </select>
+          </div>
+          <div style="max-width:120px">
+            <label>目标时长（秒）</label>
+            <select id="duration">
+              <option>30</option><option>45</option><option selected>60</option>
+              <option>90</option><option>120</option>
+            </select>
+          </div>
+        </div>
+        <label>其他要求（可选）</label>
+        <input type="text" id="extra" placeholder="例：重点强调团队永不放弃">
+        <button class="btn" id="btnGen" onclick="genScript()">① 生成激情解说词</button>
+        <span id="genState" class="muted"></span>
+      </div>
+
+      <div class="card">
+        <h2>② 约束文档（约束 DeepSeek 的输出格式）</h2>
+        <textarea id="constraints" class="small" style="height:180px;font-size:12px"></textarea>
+        <div class="row">
+          <button class="btn gray" onclick="saveConstraints()">保存约束文档</button>
+          <span class="muted">改完保存，下一条解说词就按新规则生成</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右列：解说词与合成 -->
+    <div>
+      <div class="card">
+        <h2>③ 解说词 → 激情语音</h2>
+        <div id="scriptBox"><p class="muted">还没有解说词。先在左侧点「生成激情解说词」。</p></div>
+
+        <!-- 项目一合成区 -->
+        <div id="synth1" class="hide">
+          <h3>用我的专属声音朗读</h3>
+          <div id="voiceInfo" class="muted"></div>
+          <button class="btn" id="btnSynth1" onclick="synth('voice')">▶ 用专属声音朗读</button>
+          <span id="synthState1" class="muted"></span>
+        </div>
+
+        <!-- 项目二合成区 -->
+        <div id="synth2" class="hide">
+          <h3>情感声音模型朗读（IndexTTS-2.5）</h3>
+          <div class="row">
+            <div>
+              <label>情绪模式</label>
+              <select id="emotionMode" onchange="emoModeChanged()">
+                <option value="auto">跟随解说词每段的情感标注</option>
+                <option value="fixed">整段统一使用下面的预设</option>
+              </select>
+            </div>
+            <div id="presetBox">
+              <label>情绪预设</label>
+              <select id="preset">
+                <option selected>激情洋溢</option><option>兴奋</option><option>愤怒</option>
+                <option>惊喜</option><option>低落</option><option>平静</option>
+              </select>
+            </div>
+          </div>
+          <label>情绪强度 <span id="intenV">0.95</span></label>
+          <input type="range" id="intensity" min="0.3" max="1" step="0.05" value="0.95"
+                 oninput="document.getElementById('intenV').textContent=this.value">
+          <label>语速 <span id="speedV">1.0</span>（>1 更快）</label>
+          <input type="range" id="speed" min="0.7" max="1.4" step="0.05" value="1"
+                 oninput="document.getElementById('speedV').textContent=this.value">
+          <button class="btn" id="btnSynth2" onclick="synth('emotion')">▶ 朗读（激情洋溢）</button>
+          <span id="synthState2" class="muted"></span>
+        </div>
+
+        <div id="audioBox"></div>
+      </div>
+
+      <div class="card">
+        <h2>最近生成的音频</h2>
+        <div id="outputs" class="muted">暂无</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 训练面板：仅项目一 -->
+  <div class="card" id="trainPanel">
+    <h2>声音训练（用你提供的激情解说录音，训练专属声音模型）</h2>
+    <div class="row" style="align-items:flex-start">
+      <div>
+        <h3>第一步：把录音放进文件夹</h3>
+        <div class="muted">训练素材目录：<b id="matDir">训练素材\</b></div>
+        <div id="matInfo" class="muted">读取中…</div>
+        <div style="max-height:140px;overflow:auto;margin-top:6px">
+          <table id="matTable"></table>
+        </div>
+        <div class="muted" style="margin-top:6px">建议 3~30 分钟、无背景音乐的清晰人声；mp3/wav/m4a 均可</div>
+        <button class="btn gray" onclick="loadMaterials()">刷新素材</button>
+      </div>
+      <div>
+        <h3>第二步：一键训练</h3>
+        <div class="muted">切片 → ASR 标注 → 数据集预处理 → SoVITS 微调 → GPT 微调，全自动执行。</div>
+        <button class="btn blue" id="btnTrain" onclick="startTrain()">开始训练</button>
+        <span id="trainState" class="muted"></span>
+        <div class="muted" style="margin-top:8px">训练状态：<b id="trainStep">-</b></div>
+        <div class="log" id="trainLog">训练日志会显示在这里</div>
+        <h3>训练产物</h3>
+        <div id="trainedModels" class="muted">暂无。训练完成后，SoVITS/GPT 权重会出现在这里并自动启用。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hide" id="enginesPanel">
+    <h2>语音引擎</h2>
+    <div class="row">
+      <button class="btn gray" onclick="engineAct('gpt_sovits','start')">启动项目一引擎 (GPT-SoVITS)</button>
+      <button class="btn gray" onclick="engineAct('index_tts','start')">启动项目二引擎 (IndexTTS-2.5)</button>
+      <button class="btn gray" onclick="engineAct('index_tts','stop')">停止项目二引擎</button>
+    </div>
+    <label>引擎日志（最近）</label>
+    <select id="logEngine" onchange="loadEngineLog()">
+      <option value="gpt_sovits">项目一引擎</option>
+      <option value="index_tts">项目二引擎</option>
+    </select>
+    <div class="log" id="engineLog">引擎日志会显示在这里</div>
+  </div>
+</main>
+
+<script>
+let currentScript = null;
+let curTab = 1;
+
+// ---------- 基础 ----------
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) {
+    let msg = r.status;
+    try { msg = (await r.json()).detail || msg; } catch (e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? "").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+function switchTab(n) {
+  curTab = n;
+  $("tab1").classList.toggle("on", n === 1);
+  $("tab2").classList.toggle("on", n === 2);
+  $("synth1").classList.toggle("hide", n !== 1);
+  $("synth2").classList.toggle("hide", n !== 2);
+  $("trainPanel").classList.toggle("hide", n !== 1);
+  $("enginesPanel").classList.toggle("hide", n !== 2);
+  if (n === 1) loadVoiceInfo();
+}
+
+// ---------- 状态 ----------
+async function refreshStatus() {
+  try {
+    const s = await api("/api/status");
+    const chip = (label, cls) => `<span class="chip ${cls}">${label}</span>`;
+    const e = s.engines || {};
+    const st = v => v === "ready" ? ["✓ 就绪","ok"] : v === "starting" ? ["启动中…","warn"] : ["未启动",""];
+    const [t1, c1] = st(e.gpt_sovits), [t2, c2] = st(e.index_tts);
+    $("chips").innerHTML =
+      chip("项目一引擎 " + t1, c1) +
+      chip("项目二引擎 " + t2, c2) +
+      chip(s.deepseek_configured ? "DeepSeek ✓" : "DeepSeek 未配置(用本地兜底)", s.deepseek_configured ? "ok" : "warn");
+    renderOutputs(s.outputs || []);
+  } catch (err) { $("chips").innerHTML = `<span class="chip bad">${esc(err.message)}</span>`; }
+}
+
+function renderOutputs(list) {
+  if (!list.length) { $("outputs").innerHTML = "暂无"; return; }
+  $("outputs").innerHTML = list.map(o =>
+    `<div class="row" style="margin-bottom:6px">
+       <span style="flex:2"><a href="${o.url}" target="_blank">${esc(o.file)}</a>
+       <span class="muted">${o.seconds}s · ${o.time}</span></span>
+       <audio controls preload="none" style="flex:3;margin:0" src="${o.url}"></audio>
+     </div>`).join("");
+}
+
+// ---------- 约束文档 ----------
+async function loadConstraints() {
+  $("constraints").value = (await api("/api/constraints")).content;
+}
+async function saveConstraints() {
+  await api("/api/constraints", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({content: $("constraints").value})});
+  alert("约束文档已保存");
+}
+
+// ---------- 解说词 ----------
+async function genScript() {
+  const btn = $("btnGen");
+  btn.disabled = true; $("genState").innerHTML = '<span class="spin"></span>生成中（DeepSeek 约需 10~60 秒）';
+  try {
+    const s = await api("/api/gen_script", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({story: $("story").value, style: $("style").value,
+        duration: +$("duration").value, extra: $("extra").value})});
+    currentScript = s;
+    renderScript(s);
+  } catch (err) { alert("生成失败：" + err.message); }
+  btn.disabled = false; $("genState").textContent = "";
+}
+function renderScript(s) {
+  const segs = (s.segments || []).map(x =>
+    `<div class="seg"><span class="emo">【${esc(x.emotion)} ${x.intensity}】</span><span class="txt">${esc(x.text)}</span></div>`).join("");
+  $("scriptBox").innerHTML = `<b>《${esc(s.title)}》</b>
+    <span class="muted">（${s.segments.length} 段${s._notice ? " · " + esc(s._notice) : ""}）</span>
+    <div style="margin-top:8px">${segs}</div>`;
+  $("synth1").classList.remove("hide");
+  $("synth2").classList.remove("hide");
+  if (curTab === 1) { $("synth2").classList.add("hide"); loadVoiceInfo(); }
+  else $("synth1").classList.add("hide");
+}
+
+// ---------- 合成 ----------
+async function synth(mode) {
+  if (!currentScript) { alert("请先生成解说词"); return; }
+  const btn = mode === "voice" ? $("btnSynth1") : $("btnSynth2");
+  const st = mode === "voice" ? $("synthState1") : $("synthState2");
+  btn.disabled = true;
+  st.innerHTML = '<span class="spin"></span>合成中…（引擎首次启动/加载模型需要几分钟）';
+  try {
+    const body = {mode, script: currentScript,
+      preset: $("preset").value, emotion_mode: $("emotionMode").value,
+      intensity: +$("intensity").value, speed: +$("speed").value};
+    const r = await api("/api/synth", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(body)});
+    $("audioBox").innerHTML =
+      `<h3>成片：${esc(r.file)}（${r.seconds}s）</h3><audio controls autoplay src="${r.url}"></audio>`;
+    refreshStatus();
+  } catch (err) { alert("合成失败：" + err.message); }
+  btn.disabled = false; st.textContent = "";
+}
+
+function emoModeChanged() {
+  $("presetBox").style.opacity = $("emotionMode").value === "fixed" ? 1 : 0.45;
+}
+
+// ---------- 项目一：专属声音 ----------
+async function loadVoiceInfo() {
+  try {
+    const s = await api("/api/status");
+    const v = s.voice || {};
+    $("voiceInfo").innerHTML = v.sovits_weights
+      ? `当前专属声音：<b>${esc(v.exp_name)}</b>（${esc(v.trained_at || "")} 训练，素材约 ${v.materials_minutes || "?"} 分钟）
+         <br>参考音频：${esc(v.ref_audio || "-")}` + (v.ref_audio ? ` <button class="btn gray" style="padding:2px 8px;margin:0" onclick="playRef()">试听参考</button>` : "")
+      : "还没有专属声音 —— 先在下方「声音训练」完成训练，或选择历史训练产物。";
+  } catch (e) {}
+}
+function playRef() {
+  api("/api/status").then(s => {
+    const p = (s.voice || {}).ref_audio;
+    if (p) new Audio("/api/ref_audio_file?path=" + encodeURIComponent(p)).play();
+  });
+}
+
+async function loadMaterials() {
+  const m = await api("/api/train/materials");
+  $("matDir").textContent = m.dir;
+  $("matInfo").innerHTML = m.count
+    ? `<b style="color:var(--ok)">${m.count} 个文件，共 ${(m.total_seconds/60).toFixed(1)} 分钟</b>`
+    : `<b style="color:var(--bad)">空</b>——请把录音文件放进上面目录后点刷新`;
+  $("matTable").innerHTML = m.files.map(f =>
+    `<tr><td>${esc(f.file)}</td><td>${f.seconds}s</td><td>${f.size_mb}MB</td></tr>`).join("");
+}
+
+async function startTrain() {
+  if (!confirm("开始全自动训练？（切片→标注→预处理→SoVITS→GPT，可能需要几十分钟到数小时）")) return;
+  try {
+    await api("/api/train/start", {method:"POST"});
+    pollTrain();
+  } catch (err) { alert(err.message); }
+}
+
+let trainTimer = null;
+function pollTrain() {
+  if (trainTimer) return;
+  trainTimer = setInterval(async () => {
+    try {
+      const s = await api("/api/train/status");
+      $("trainStep").textContent = s.running ? s.step : (s.step || "-");
+      $("trainState").textContent = s.running ? "" : (s.error ? "❌ " + s.error : (s.finished_at ? "✅ 完成 " + s.finished_at : ""));
+      if (s.log_tail) { const el = $("trainLog"); el.textContent = s.log_tail; el.scrollTop = el.scrollHeight; }
+      if (s.trained && s.trained.length) {
+        $("trainedModels").innerHTML = s.trained.map(m =>
+          `<span class="pill">${m.kind === "sovits" ? "SoVITS" : "GPT"} · ${esc(m.file)} · ${m.mtime}</span>`).join("<br>");
+      }
+      if (!s.running && s.finished_at) { clearInterval(trainTimer); trainTimer = null; loadVoiceInfo(); }
+    } catch (e) {}
+  }, 3000);
+}
+
+// ---------- 引擎 ----------
+async function engineAct(name, act) {
+  try { await api(`/api/engine/${name}/${act}`, {method:"POST"}); refreshStatus(); }
+  catch (err) { alert(err.message); }
+}
+async function loadEngineLog() {
+  const name = $("logEngine").value;
+  try { $("engineLog").textContent = (await api(`/api/engine/${name}/log?n=80`)).log || "（无日志）"; }
+  catch (e) {}
+}
+
+// ---------- init ----------
+loadConstraints();
+refreshStatus();
+loadMaterials();
+loadVoiceInfo();
+setInterval(refreshStatus, 10000);
+</script>
+</body>
+</html>
