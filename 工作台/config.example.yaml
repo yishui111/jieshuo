@@ -20,11 +20,13 @@ workbench:
 
 engines:
   index_tts:                                # 项目二：情感解说引擎（IndexTTS-2.5）
+    label: "情感解说引擎 IndexTTS-2.5"
     cmd: "../index-tts/.venv/Scripts/python.exe -u tts_server.py --version 2.5 --model_dir checkpoints/IndexTTS-2.5 --port 9602"
     cwd: "../index-tts"
     health: "http://127.0.0.1:9602/health"
     ready_field: "ok"
   gpt_sovits:                               # 项目一：专属声音引擎（GPT-SoVITS 推理 API）
+    label: "专属声音引擎 GPT-SoVITS"
     cmd: ".venv/Scripts/python.exe api_server.py -a 127.0.0.1 -p 9885"
     cwd: "../GPT-SoVITS"
     health: "http://127.0.0.1:9885/health"

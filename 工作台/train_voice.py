@@ -327,6 +327,20 @@ def run_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
         _state["finished_at"] = time.strftime("%F %T")
 
 
+def list_trained_models() -> list:
+    """列出所有训练产出的权重（新的在前）。"""
+    import glob
+    out = []
+    for sub, kind in [("SoVITS_weights_v2", "sovits"), ("GPT_weights_v2", "gpt")]:
+        folder = os.path.join(GSV_ROOT, sub)
+        for fp in sorted(glob.glob(os.path.join(folder, "*.pth")) +
+                         glob.glob(os.path.join(folder, "*.ckpt")),
+                         key=os.path.getmtime, reverse=True):
+            out.append({"kind": kind, "file": os.path.basename(fp), "path": fp,
+                        "mtime": time.strftime("%m-%d %H:%M", time.localtime(os.path.getmtime(fp)))})
+    return out
+
+
 def start_training(exp_name: str, sovits_epochs: int, gpt_epochs: int,
                    sovits_bs: int, gpt_bs: int, save_every: int) -> dict:
     if is_running():
