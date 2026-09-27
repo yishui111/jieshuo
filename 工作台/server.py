@@ -299,7 +299,7 @@ def _with_engine_retry(job_id: str, engine_name: str, fn):
 def _tts_index_tts(text: str, vec: list, spk: str, speed: float) -> str:
     """项目二：调 IndexTTS-2.5 引擎合成一段，返回 wav 路径。"""
     base = MANAGER.get("index_tts").conf["health"].replace("/health", "")
-    out = os.path.join(OUTPUT_DIR, "segments", f"seg_{time.time_ns()}.wav")
+    out = os.path.join(WORK_DIR, "logs", "segments", f"seg_{time.time_ns()}.wav")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     t = CFG["tts"]["index_tts"]
     r = requests.post(f"{base}/tts", json={
@@ -316,7 +316,7 @@ def _tts_index_tts(text: str, vec: list, spk: str, speed: float) -> str:
 def _tts_gptsovits(text: str, ref_audio: str, prompt_text: str) -> str:
     """项目一：调 GPT-SoVITS 引擎用专属声音合成一段，返回 wav 路径。"""
     base = MANAGER.get("gpt_sovits").conf["health"].replace("/health", "")
-    out = os.path.join(OUTPUT_DIR, "segments", f"seg_{time.time_ns()}.wav")
+    out = os.path.join(WORK_DIR, "logs", "segments", f"seg_{time.time_ns()}.wav")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     t = CFG["tts"]["gpt_sovits"]
     r = requests.post(f"{base}/tts", json={

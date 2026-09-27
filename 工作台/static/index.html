@@ -22,7 +22,7 @@
   nav button{background:var(--panel);border:1px solid var(--line);border-bottom:none;color:var(--muted);
     padding:9px 22px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px}
   nav button.on{color:var(--text);background:var(--panel2);border-color:var(--acc);font-weight:600}
-  main{padding:16px 20px 40px}
+  main{padding:16px 20px 40px;max-width:1280px;margin:0 auto}
   .grid{display:grid;grid-template-columns:minmax(340px,1fr) minmax(380px,1.2fr);gap:16px;align-items:start}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
   .card h2{font-size:15px;margin:0 0 10px;color:var(--acc)}
@@ -30,7 +30,7 @@
   label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
   textarea,input[type=text],select{width:100%;background:var(--panel2);border:1px solid var(--line);
     color:var(--text);border-radius:6px;padding:8px 10px;font:inherit;resize:vertical}
-  textarea.small{height:120px}
+  textarea.small{height:110px}
   input[type=range]{width:100%}
   .btn{display:inline-block;background:var(--acc);border:none;color:#111;font-weight:700;
     padding:9px 18px;border-radius:7px;cursor:pointer;font-size:14px;margin-top:10px}
@@ -44,7 +44,7 @@
   .seg .txt{white-space:pre-wrap}
   .muted{color:var(--muted);font-size:12px}
   .log{background:#0b0d10;border:1px solid var(--line);border-radius:8px;padding:10px;
-    height:200px;overflow:auto;font:12px/1.5 Consolas,monospace;white-space:pre-wrap}
+    height:190px;overflow:auto;font:12px/1.5 Consolas,monospace;white-space:pre-wrap}
   audio{width:100%;margin-top:10px}
   table{width:100%;border-collapse:collapse;font-size:12px}
   td,th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
@@ -54,6 +54,8 @@
     border-radius:50%;animation:r 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
   @keyframes r{to{transform:rotate(360deg)}}
   .steps{font-size:12px;color:var(--muted);margin:2px 0 10px}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--acc2);font-size:13px}
 </style>
 </head>
 <body>
@@ -69,12 +71,11 @@
 
 <main>
   <div class="grid">
-    <!-- 左列 -->
+    <!-- 左列：故事 + 约束文档 -->
     <div>
       <div class="card">
-        <h2>① 输入故事，生成激情解说词</h2>
-        <div class="steps">DeepSeek 会按下方「约束文档」把故事改写成激情解说词（每段带情感标注）</div>
-        <textarea id="story" class="small" placeholder="例：一支学生团队连续熬夜三个月，终于在全国机器人大赛决赛逆转夺冠……"></textarea>
+        <h2>① 故事 → 生成激情解说词</h2>
+        <textarea id="story" class="small" placeholder="把故事粘进来。例：一支学生团队连续熬夜三个月，终于在全国机器人大赛决赛逆转夺冠……"></textarea>
         <div class="row">
           <div>
             <label>解说风格</label>
@@ -87,33 +88,31 @@
             </select>
           </div>
           <div style="max-width:120px">
-            <label>目标时长（秒）</label>
+            <label>时长（秒）</label>
             <select id="duration">
               <option>30</option><option>45</option><option selected>60</option>
               <option>90</option><option>120</option>
             </select>
           </div>
         </div>
-        <label>其他要求（可选）</label>
-        <input type="text" id="extra" placeholder="例：重点强调团队永不放弃">
-        <button class="btn" id="btnGen" onclick="genScript()">① 生成激情解说词</button>
+        <button class="btn" id="btnGen" onclick="genScript()">生成激情解说词</button>
         <span id="genState" class="muted"></span>
       </div>
 
       <div class="card">
-        <h2>② 约束文档（约束 DeepSeek 的输出格式）</h2>
-        <textarea id="constraints" class="small" style="height:180px;font-size:12px"></textarea>
-        <div class="row">
+        <details>
+          <summary>约束文档（约束 DeepSeek 输出格式，点开可编辑）</summary>
+          <textarea id="constraints" style="height:200px;font-size:12px;margin-top:8px"></textarea>
           <button class="btn gray" onclick="saveConstraints()">保存约束文档</button>
           <span class="muted">保存后，下一条解说词就按新规则生成</span>
-        </div>
+        </details>
       </div>
     </div>
 
-    <!-- 右列 -->
+    <!-- 右列：解说词 + 朗读 + 历史 -->
     <div>
       <div class="card">
-        <h2>③ 解说词 → 激情语音</h2>
+        <h2>② 解说词 → 激情语音</h2>
         <div id="scriptBox"><p class="muted">还没有解说词。先在左侧点「生成激情解说词」。</p></div>
 
         <div id="synth1" class="hide">
@@ -184,26 +183,10 @@
         <span id="trainState" class="muted"></span>
         <div class="muted" style="margin-top:8px">当前状态：<b id="trainStep">-</b></div>
         <div class="log" id="trainLog">训练日志会显示在这里</div>
-        <h3>训练产物（点「启用」切换使用哪个声音）</h3>
-        <div id="trainedModels" class="muted">暂无。训练完成后自动启用最新产物。</div>
+        <h3>训练产物（训练完自动启用最新声音）</h3>
+        <div id="trainedModels" class="muted">暂无</div>
       </div>
     </div>
-  </div>
-
-  <div class="card hide" id="enginesPanel">
-    <h2>语音引擎（一般不用手动管，点朗读会自动启动）</h2>
-    <div class="row">
-      <button class="btn gray" onclick="engineAct('gpt_sovits','start')">预启动项目一引擎</button>
-      <button class="btn gray" onclick="engineAct('index_tts','start')">预启动项目二引擎</button>
-      <button class="btn gray" onclick="engineAct('index_tts','stop')">停止项目二引擎</button>
-      <button class="btn gray" onclick="engineAct('gpt_sovits','stop')">停止项目一引擎</button>
-    </div>
-    <label>引擎日志（最近）</label>
-    <select id="logEngine" onchange="loadEngineLog()">
-      <option value="gpt_sovits">项目一引擎</option>
-      <option value="index_tts">项目二引擎</option>
-    </select>
-    <div class="log" id="engineLog">引擎日志会显示在这里</div>
   </div>
 </main>
 
@@ -229,7 +212,6 @@ function switchTab(n) {
   $("synth1").classList.toggle("hide", n !== 1);
   $("synth2").classList.toggle("hide", n !== 2);
   $("trainPanel").classList.toggle("hide", n !== 1);
-  $("enginesPanel").classList.toggle("hide", n !== 2);
   if (n === 1) loadVoiceInfo();
 }
 
@@ -274,7 +256,7 @@ async function genScript() {
   try {
     const s = await api("/api/gen_script", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({story: $("story").value, style: $("style").value,
-        duration: +$("duration").value, extra: $("extra").value})});
+        duration: +$("duration").value, extra: ""})});
     currentScript = s;
     renderScript(s);
   } catch (err) { alert("生成失败：" + err.message); }
@@ -311,7 +293,7 @@ async function synth(mode) {
       if (job.done) {
         clearInterval(jobTimer); jobTimer = null;
         btn.disabled = false; $("jobBox").classList.add("hide");
-        if (job.error) { alert("合成失败：" + job.error); return; }
+        if (job.error) { alert("合成失败：" + job.error + "。可直接再点一次朗读重试。"); return; }
         $("audioBox").innerHTML =
           `<h3>成片：${esc(job.result.file)}（${job.result.seconds}s）</h3>
            <audio controls autoplay src="${job.result.url}"></audio>`;
@@ -365,16 +347,6 @@ function pollTrain() {
       if (!s.running && s.finished_at) { clearInterval(trainTimer); trainTimer = null; loadVoiceInfo(); }
     } catch (e) {}
   }, 3000);
-}
-
-// ---------- 引擎 ----------
-async function engineAct(name, act) {
-  try { await api(`/api/engine/${name}/${act}`, {method:"POST"}); refreshStatus(); }
-  catch (err) { alert(err.message); }
-}
-async function loadEngineLog() {
-  try { $("engineLog").textContent = (await api(`/api/engine/${$("logEngine").value}/log?n=80`)).log || "（无日志）"; }
-  catch (e) {}
 }
 
 // ---------- 启动 ----------

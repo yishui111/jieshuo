@@ -60,6 +60,6 @@ training:
 
 paths:
   materials_dir: "../训练素材"              # ← 把你的激情解说录音放这里
-  outputs_dir: "outputs"
+  outputs_dir: "../解说音频"                 # 生成音频的保存位置（根目录解说音频）
   model_cache_dir: "model_cache"            # HF/ModelScope 缓存本地化（不占C盘）
   voice_config: "voice_config.json"         # 当前启用的专属声音（训练完成后写入）
