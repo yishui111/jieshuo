@@ -63,7 +63,8 @@ class Engine:
     # ---- 状态 ----
     def healthy(self) -> bool:
         try:
-            r = requests.get(self.conf["health"], timeout=4)
+            # 超时给短一些：/api/status 每次会探测两个引擎，不能拖慢页面
+            r = requests.get(self.conf["health"], timeout=2)
             if not r.ok:
                 return False
             field = self.conf.get("ready_field")

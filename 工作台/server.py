@@ -72,6 +72,10 @@ JOBS_LOCK = threading.Lock()
 
 def new_job() -> str:
     with JOBS_LOCK:
+        # 只保留最近 20 条任务，防止长期运行时任务表无限增长
+        if len(JOBS) > 20:
+            for old in sorted(JOBS, key=lambda k: JOBS[k]["started"])[: len(JOBS) - 20]:
+                del JOBS[old]
         job_id = time.strftime("%H%M%S") + f"_{len(JOBS) + 1}"
         JOBS[job_id] = {"stage": "排队中", "done": False, "error": "",
                         "result": {}, "started": time.time()}
