@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """项目一 · 专属声音训练编排：把 训练素材/ 里的录音训练成 GPT-SoVITS 专属声音。
 
-流程（全自动，逐条日志写入 工作台/logs/train_<exp>.log）：
+流程（全自动，逐条日志写入 本项目/logs/train_<exp>.log）：
   1. 检查素材        训练素材/ 下的 wav/mp3/flac/m4a
   2. 切片            静音检测切成 4~15s 小段（tools/slice_audio.py）
   3. ASR 标注        Fun-ASR-Nano 生成 文本标注 .list（tools/asr/funasr_asr.py）
@@ -11,7 +11,7 @@
   7. 挑参考音频      自动选一条 10~30 字的切片作推理参考，写入 voice_config.json
 
 训练产物：GPT-SoVITS/SoVITS_weights_v2/ 、GPT-SoVITS/GPT_weights_v2/ 下以 exp 名命名的权重。
-所有 HF/ModelScope 缓存钉在 工作台/model_cache/，不占 C 盘。
+所有 HF/ModelScope 缓存钉在 本项目/model_cache/，不占 C 盘。
 """
 
 import glob
@@ -23,7 +23,7 @@ import time
 import traceback
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
-GSV_ROOT = os.path.normpath(os.path.join(WORK_DIR, "..", "GPT-SoVITS"))
+GSV_ROOT = os.path.normpath(os.path.join(WORK_DIR, "GPT-SoVITS"))
 GSV_PY = os.path.join(GSV_ROOT, ".venv", "Scripts", "python.exe")
 
 S2_PRETRAINED_G = os.path.join(GSV_ROOT, "GPT_SoVITS", "pretrained_models",

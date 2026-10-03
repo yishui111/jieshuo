@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""激情解说 · 统一工作台后端（唯一服务，端口见 config.yaml 的 workbench.port）。
+"""项目一 · 专属声音工作台后端（独立服务，端口见 config.yaml 的 workbench.port）。
 
-整个系统的流程（也是两个项目的全部逻辑）：
+整个项目的流程：
 
     ① 故事/素材文字
-    ② 工作台/约束文档.md + 故事  →  DeepSeek  →  激情解说词 JSON
+    ② 约束文档.md + 故事  →  DeepSeek（无 Key 回退本地 Ollama） →  激情解说词 JSON
        （每段 20~40 字，带 emotion 情感标注 + intensity 强度）
-    ③ 解说词逐段交给语音引擎朗读，拼成一条音频
-       项目一：GPT-SoVITS，用「训练素材/」训练出来的专属声音（工作台/train_voice.py）
-       项目二：IndexTTS-2.5，按「激情洋溢」等情绪预设带情感朗读
+    ③ 解说词逐段交给 GPT-SoVITS 用「专属声音」朗读，拼成一条音频
+       - 已训练：加载训练出来的 SoVITS/GPT 权重（train_voice.py 一键训练）
+       - 未训练：用 GPT-SoVITS/参考音频/ 里的默认参考音频做零样本克隆
 
 接口一览：
   GET  /                     前端页面（static/index.html）
@@ -18,7 +18,8 @@
   POST /api/synth            解说词 → 语音（异步，返回 job_id）
   GET  /api/job/{id}         查询任务进度
   GET  /api/train/*          声音训练：素材/启动/进度
-  POST /api/engine/{名}/start|stop, GET /api/engine/{名}/log
+  POST /api/voice/select     手动启用某个历史训练产物
+  POST /api/engine/gpt_sovits/start|stop    GET /api/engine/gpt_sovits/log
 """
 
 import json
@@ -50,20 +51,7 @@ OUTPUT_DIR = os.path.normpath(os.path.join(WORK_DIR, CFG["paths"]["outputs_dir"]
 VOICE_CFG_PATH = os.path.join(WORK_DIR, CFG["paths"]["voice_config"])
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-app = FastAPI(title="激情解说工作台")
-
-# 情感标签 → IndexTTS 8 维情感向量 [喜, 怒, 哀, 惧, 厌恶, 低落, 惊喜, 平静]
-EMOTION_VECTORS = {
-    "兴奋": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.0],
-    "喜悦": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    "愤怒": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.2, 0.0],
-    "哀伤": [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    "恐惧": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-    "厌恶": [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-    "低落": [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-    "惊喜": [0.6, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-    "平静": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8],
-}
+app = FastAPI(title="项目一 · 专属声音工作台")
 
 # 异步任务表：job_id -> {"stage", "done", "error", "result", "started"}
 JOBS = {}
@@ -176,7 +164,7 @@ def api_gen_script(body: GenScriptBody):
     except Exception as e:
         msg = str(e)
         if "DeepSeek" in msg or "Ollama" in msg:
-            msg += ("｜解决办法：打开 工作台\\config.yaml，在 deepseek.api_key 填入你的 "
+            msg += ("｜解决办法：打开本项目根目录的 config.yaml，在 deepseek.api_key 填入你的 "
                     "DeepSeek Key（平台 platform.deepseek.com 申请），保存后直接重试，无需重启。")
         raise HTTPException(500, f"解说词生成失败：{msg}")
 
@@ -185,11 +173,7 @@ def api_gen_script(body: GenScriptBody):
 # 第 4 部分：语音合成（异步任务：解说词 → 音频）
 # =====================================================================
 class SynthBody(BaseModel):
-    mode: str                  # voice=项目一专属声音 | emotion=项目二情感引擎
     script: dict
-    preset: str = "激情洋溢"    # emotion 模式：整段统一使用的情绪预设
-    emotion_mode: str = "auto"  # auto=跟随解说词逐段标注 | fixed=统一用预设
-    intensity: float = 0.95
     speed: float = 1.0
 
 
@@ -217,6 +201,13 @@ def _safe_name(title: str) -> str:
     return re.sub(r'[\\/:*?"<>|\s]+', "_", title)[:30] or "解说"
 
 
+def _resolve_work_path(path: str) -> str:
+    """把 config 里的相对路径解析成相对本项目根目录的绝对路径。"""
+    if path and not os.path.isabs(path):
+        return os.path.normpath(os.path.join(WORK_DIR, path))
+    return os.path.normpath(path) if path else path
+
+
 def _synth_job(job_id: str, body: SynthBody):
     """后台执行：确保引擎就绪 → 逐段合成 → 拼接成片。所有失败都写进任务状态。"""
     try:
@@ -224,27 +215,27 @@ def _synth_job(job_id: str, body: SynthBody):
         title = _safe_name(body.script.get("title", "解说"))
         set_job(job_id, "准备合成")
 
-        # 项目一：需要已训练的专属声音；项目二：按情绪预设换算情感向量
-        if body.mode == "voice":
-            engine_name, spk = "gpt_sovits", None
-            voice = _load_voice_config()
-            if not voice.get("sovits_weights"):
-                raise RuntimeError("还没有专属声音：请先在「项目一」完成声音训练")
-            ref_audio = voice.get("ref_audio", "")
-            prompt_text = voice.get("prompt_text", "")
-        else:
-            engine_name = "index_tts"
-            spk = os.path.normpath(os.path.join(WORK_DIR, CFG["tts"]["index_tts"]["spk_audio"]))
-            preset = CFG["tts"]["index_tts"]["presets"].get(
-                body.preset, CFG["tts"]["index_tts"]["presets"]["激情洋溢"])
+        # 专属声音：已训练用训练权重；未训练退回默认参考音频（零样本克隆）
+        voice = _load_voice_config()
+        ref_audio = _resolve_work_path(voice.get("ref_audio")
+                                       or CFG["tts"]["gpt_sovits"].get("default_ref_audio", ""))
+        prompt_text = (voice.get("prompt_text")
+                       or CFG["tts"]["gpt_sovits"].get("default_prompt_text", ""))
+        if not ref_audio or not os.path.isfile(ref_audio):
+            raise RuntimeError("没有可用的参考音频：请先在页面完成声音训练，"
+                               "或在 config.yaml 的 tts.gpt_sovits.default_ref_audio 配置默认参考音频")
 
-        # 引擎就绪（首次要加载模型，几分钟；阶段实时汇报给页面）
-        set_job(job_id, f"启动{MANAGER.get(engine_name).conf.get('label', engine_name)}…（首次加载模型约 3~5 分钟）")
-        MANAGER.ensure(engine_name, timeout_s=2400,
+        # 引擎就绪（首次要加载模型，约 1~2 分钟；阶段实时汇报给页面）
+        set_job(job_id, f"启动{MANAGER.get('gpt_sovits').conf.get('label', '引擎')}…（首次加载模型约 1~2 分钟）")
+        MANAGER.ensure("gpt_sovits", timeout_s=2400,
                        progress=lambda s: set_job(job_id, f"引擎加载中：{s}"))
-        if body.mode == "voice":
+
+        using_trained = bool(voice.get("sovits_weights"))
+        if using_trained:
             set_job(job_id, "载入专属声音权重…")
             _set_gptsovits_weights(voice)
+        else:
+            set_job(job_id, "未训练专属声音，使用默认参考音色（零样本克隆）")
 
         # 逐段合成（引擎若被系统压掉，自动重新拉起并重试当前段）
         wavs = []
@@ -252,18 +243,8 @@ def _synth_job(job_id: str, body: SynthBody):
         for i, seg in enumerate(segments, 1):
             text = str(seg["text"]).strip()
             set_job(job_id, f"合成中 ({i}/{total})：{text[:16]}…")
-            if body.mode == "emotion":
-                if body.emotion_mode == "fixed":
-                    vec = [v * body.intensity for v in preset["vector"]]
-                else:
-                    emo = seg.get("emotion", "兴奋")
-                    base = EMOTION_VECTORS.get(emo, EMOTION_VECTORS["兴奋"])
-                    vec = [v * float(seg.get("intensity", body.intensity)) for v in base]
-                wavs.append(_with_engine_retry(
-                    job_id, engine_name, lambda: _tts_index_tts(text, vec, spk, body.speed)))
-            else:
-                wavs.append(_with_engine_retry(
-                    job_id, engine_name, lambda: _tts_gptsovits(text, ref_audio, prompt_text)))
+            wavs.append(_with_engine_retry(
+                job_id, lambda: _tts_gptsovits(text, ref_audio, prompt_text, body.speed)))
 
         # 拼接成片
         set_job(job_id, "拼接成片…")
@@ -283,42 +264,26 @@ def _synth_job(job_id: str, body: SynthBody):
 
         set_job(job_id, "完成", done=True,
                 result={"file": os.path.basename(final), "url": f"/audio/{os.path.basename(final)}",
-                        "seconds": seconds})
+                        "seconds": seconds,
+                        "voice": voice.get("exp_name") if using_trained else "默认参考音色（零样本）"})
     except Exception as e:
         traceback.print_exc()
         set_job(job_id, "失败", done=True, error=str(e))
 
 
-def _with_engine_retry(job_id: str, engine_name: str, fn):
+def _with_engine_retry(job_id: str, fn):
     """调用引擎合成；连接被断开（引擎被系统压掉）时重新拉起引擎并重试一次。"""
     try:
         return fn()
     except requests.ConnectionError:
         set_job(job_id, "引擎连接中断，自动重启引擎并重试…")
-        MANAGER.ensure(engine_name, timeout_s=2400,
+        MANAGER.ensure("gpt_sovits", timeout_s=2400,
                        progress=lambda s: set_job(job_id, f"引擎加载中：{s}"))
         return fn()
 
 
-def _tts_index_tts(text: str, vec: list, spk: str, speed: float) -> str:
-    """项目二：调 IndexTTS-2.5 引擎合成一段，返回 wav 路径。"""
-    base = MANAGER.get("index_tts").conf["health"].replace("/health", "")
-    out = os.path.join(WORK_DIR, "logs", "segments", f"seg_{time.time_ns()}.wav")
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    t = CFG["tts"]["index_tts"]
-    r = requests.post(f"{base}/tts", json={
-        "text": text, "emo_vector": vec, "spk_audio": spk,
-        "lang": t.get("lang", "zh_CN"),
-        "interval_silence": t.get("interval_silence_ms", 260),
-        "duration_factor": max(0.6, min(1.6, 1.0 / max(0.5, speed))),
-        "output": out,
-    }, timeout=t.get("timeout_s", 600))
-    r.raise_for_status()
-    return r.json()["file"]
-
-
-def _tts_gptsovits(text: str, ref_audio: str, prompt_text: str) -> str:
-    """项目一：调 GPT-SoVITS 引擎用专属声音合成一段，返回 wav 路径。"""
+def _tts_gptsovits(text: str, ref_audio: str, prompt_text: str, speed: float = 1.0) -> str:
+    """调 GPT-SoVITS 引擎用专属声音合成一段，返回 wav 路径。"""
     base = MANAGER.get("gpt_sovits").conf["health"].replace("/health", "")
     out = os.path.join(WORK_DIR, "logs", "segments", f"seg_{time.time_ns()}.wav")
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -327,6 +292,7 @@ def _tts_gptsovits(text: str, ref_audio: str, prompt_text: str) -> str:
         "text": text, "text_lang": t.get("text_lang", "zh"),
         "ref_audio_path": ref_audio, "prompt_text": prompt_text,
         "prompt_lang": t.get("prompt_lang", "zh"),
+        "speed_factor": max(0.5, min(2.0, speed)),
         "text_split_method": "cut0", "media_type": "wav", "streaming_mode": False,
     }, timeout=t.get("timeout_s", 600))
     r.raise_for_status()
@@ -359,17 +325,18 @@ def audio(name: str):
 
 @app.get("/api/ref_audio_file")
 def ref_audio_file(path: str):
-    """专属声音的参考音频试听（只允许训练数据/素材目录）。"""
+    """专属声音的参考音频试听（只允许训练数据/素材/引擎参考音频目录）。"""
     fp = os.path.normpath(path)
     allowed = [os.path.join(WORK_DIR, "训练数据"),
-               os.path.normpath(os.path.join(WORK_DIR, "..", "训练素材"))]
+               os.path.join(WORK_DIR, "训练素材"),
+               os.path.join(WORK_DIR, "GPT-SoVITS", "参考音频")]
     if not any(fp.startswith(a) for a in allowed) or not os.path.isfile(fp):
         raise HTTPException(400)
     return FileResponse(fp)
 
 
 # =====================================================================
-# 第 5 部分：声音训练（项目一）
+# 第 5 部分：声音训练
 # =====================================================================
 @app.get("/api/train/materials")
 def train_materials():
@@ -452,6 +419,8 @@ def main():
     port = int(CFG["workbench"]["port"])
 
     def _open_browser():
+        if os.environ.get("NO_BROWSER"):  # 测试/无人值守时设置，不自动弹页面
+            return
         import requests as rq
         for _ in range(90):  # 机器慢时端口绑定可能要几十秒，等就绪再开浏览器
             try:
@@ -462,10 +431,9 @@ def main():
         webbrowser.open(f"http://{host}:{port}")
 
     print("=" * 56)
-    print(" 激情解说 · 统一工作台")
-    print(" 项目一 专属声音（训练+朗读）/ 项目二 情感解说（激情洋溢）")
+    print(" 项目一 · 专属声音工作台（训练 + 朗读）")
     print(f" 页面地址: http://{host}:{port}  （浏览器将自动打开）")
-    print(" 语音引擎在点「朗读」时自动启动；关闭本窗口即停止工作台")
+    print(" 引擎 GPT-SoVITS 在点「朗读」时自动启动；关闭本窗口即停止工作台")
     print("=" * 56)
     threading.Thread(target=_open_browser, daemon=True).start()
     uvicorn.run(app, host=host, port=port, log_level="warning")

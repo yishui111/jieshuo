@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>激情解说 · 工作台</title>
+<title>项目一 · 专属声音工作台</title>
 <style>
   :root{
     --bg:#0f1115; --panel:#181b22; --panel2:#1f232d; --line:#2a2f3a;
@@ -18,10 +18,6 @@
   .chip.ok{color:var(--ok);border-color:var(--ok)}
   .chip.bad{color:var(--bad);border-color:var(--bad)}
   .chip.warn{color:var(--acc);border-color:var(--acc)}
-  nav{display:flex;gap:4px;padding:8px 20px 0}
-  nav button{background:var(--panel);border:1px solid var(--line);border-bottom:none;color:var(--muted);
-    padding:9px 22px;border-radius:8px 8px 0 0;cursor:pointer;font-size:14px}
-  nav button.on{color:var(--text);background:var(--panel2);border-color:var(--acc);font-weight:600}
   main{padding:16px 20px 40px;max-width:1280px;margin:0 auto}
   .grid{display:grid;grid-template-columns:minmax(340px,1fr) minmax(380px,1.2fr);gap:16px;align-items:start}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
@@ -53,21 +49,15 @@
   .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--acc);border-top-color:transparent;
     border-radius:50%;animation:r 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
   @keyframes r{to{transform:rotate(360deg)}}
-  .steps{font-size:12px;color:var(--muted);margin:2px 0 10px}
   details{margin-top:10px}
   summary{cursor:pointer;color:var(--acc2);font-size:13px}
 </style>
 </head>
 <body>
 <header>
-  <h1>🎤 激情解说 · 工作台</h1>
+  <h1>🎙️ 项目一 · 专属声音工作台</h1>
   <div class="chips" id="chips"></div>
 </header>
-
-<nav>
-  <button id="tab1" class="on" onclick="switchTab(1)">项目一 · 专属声音（训练 + 朗读）</button>
-  <button id="tab2" onclick="switchTab(2)">项目二 · 情感解说（激情洋溢）</button>
-</nav>
 
 <main>
   <div class="grid">
@@ -112,40 +102,16 @@
     <!-- 右列：解说词 + 朗读 + 历史 -->
     <div>
       <div class="card">
-        <h2>② 解说词 → 激情语音</h2>
+        <h2>② 解说词 → 用我的专属声音朗读</h2>
         <div id="scriptBox"><p class="muted">还没有解说词。先在左侧点「生成激情解说词」。</p></div>
 
-        <div id="synth1" class="hide">
-          <h3>用我的专属声音朗读</h3>
+        <div id="synthBox" class="hide">
+          <h3>专属声音朗读（GPT-SoVITS）</h3>
           <div id="voiceInfo" class="muted"></div>
-          <button class="btn" id="btnSynth1" onclick="synth('voice')">▶ 用专属声音朗读</button>
-        </div>
-
-        <div id="synth2" class="hide">
-          <h3>情感声音模型朗读（IndexTTS-2.5）</h3>
-          <div class="row">
-            <div>
-              <label>情绪模式</label>
-              <select id="emotionMode" onchange="document.getElementById('presetBox').style.opacity=this.value==='fixed'?1:0.45">
-                <option value="auto">跟随解说词每段的情感标注</option>
-                <option value="fixed">整段统一使用下面的预设</option>
-              </select>
-            </div>
-            <div id="presetBox" style="opacity:.45">
-              <label>情绪预设</label>
-              <select id="preset">
-                <option selected>激情洋溢</option><option>兴奋</option><option>愤怒</option>
-                <option>惊喜</option><option>低落</option><option>平静</option>
-              </select>
-            </div>
-          </div>
-          <label>情绪强度 <span id="intenV">0.95</span></label>
-          <input type="range" id="intensity" min="0.3" max="1" step="0.05" value="0.95"
-                 oninput="document.getElementById('intenV').textContent=this.value">
           <label>语速 <span id="speedV">1.0</span>（大于 1 更快）</label>
           <input type="range" id="speed" min="0.7" max="1.4" step="0.05" value="1"
                  oninput="document.getElementById('speedV').textContent=this.value">
-          <button class="btn" id="btnSynth2" onclick="synth('emotion')">▶ 朗读（激情洋溢）</button>
+          <button class="btn" id="btnSynth" onclick="synth()">▶ 用专属声音朗读</button>
         </div>
 
         <div id="jobBox" class="hide" style="margin-top:10px">
@@ -162,7 +128,7 @@
     </div>
   </div>
 
-  <!-- 训练面板：仅项目一 -->
+  <!-- 训练面板 -->
   <div class="card" id="trainPanel">
     <h2>声音训练（用你的激情解说录音，训练出专属声音模型）</h2>
     <div class="row" style="align-items:flex-start">
@@ -191,7 +157,7 @@
 </main>
 
 <script>
-let currentScript = null, curTab = 1, jobTimer = null, trainTimer = null;
+let currentScript = null, jobTimer = null, trainTimer = null;
 const $ = id => document.getElementById(id);
 const esc = s => (s ?? "").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;");
 
@@ -205,26 +171,15 @@ async function api(path, opts) {
   return r.json();
 }
 
-function switchTab(n) {
-  curTab = n;
-  $("tab1").classList.toggle("on", n === 1);
-  $("tab2").classList.toggle("on", n === 2);
-  $("synth1").classList.toggle("hide", n !== 1);
-  $("synth2").classList.toggle("hide", n !== 2);
-  $("trainPanel").classList.toggle("hide", n !== 1);
-  if (n === 1) loadVoiceInfo();
-}
-
 // ---------- 状态条 ----------
 async function refreshStatus() {
   try {
     const s = await api("/api/status");
     const chip = (label, cls) => `<span class="chip ${cls}">${label}</span>`;
-    const st = v => v === "ready" ? ["✓ 就绪","ok"] : v === "starting" ? ["启动中…","warn"] : ["未启动",""];
-    const [t1, c1] = st((s.engines||{}).gpt_sovits), [t2, c2] = st((s.engines||{}).index_tts);
+    const v = (s.engines||{}).gpt_sovits;
+    const [t1, c1] = v === "ready" ? ["✓ 就绪","ok"] : v === "starting" ? ["启动中…","warn"] : ["未启动",""];
     $("chips").innerHTML =
-      chip("项目一引擎 " + t1, c1) +
-      chip("项目二引擎 " + t2, c2) +
+      chip("专属声音引擎 " + t1, c1) +
       chip(s.deepseek_configured ? "DeepSeek ✓" : "DeepSeek 未配置（用本地兜底）", s.deepseek_configured ? "ok" : "warn");
     renderOutputs(s.outputs || []);
   } catch (err) { $("chips").innerHTML = `<span class="chip bad">后端未响应：${esc(err.message)}</span>`; }
@@ -268,23 +223,21 @@ function renderScript(s) {
   $("scriptBox").innerHTML = `<b>《${esc(s.title)}》</b>
     <span class="muted">（${s.segments.length} 段${s._notice ? " · " + esc(s._notice) : ""}）</span>
     <div style="margin-top:8px">${segs}</div>`;
-  $("synth1").classList.toggle("hide", curTab !== 1);
-  $("synth2").classList.toggle("hide", curTab !== 2);
-  if (curTab === 1) loadVoiceInfo();
+  $("synthBox").classList.remove("hide");
+  loadVoiceInfo();
 }
 
 // ---------- 合成（异步任务） ----------
-async function synth(mode) {
+async function synth() {
   if (!currentScript) { alert("请先生成解说词"); return; }
   if (jobTimer) { alert("已有合成任务在进行，请等它结束"); return; }
-  const btn = mode === "voice" ? $("btnSynth1") : $("btnSynth2");
+  const btn = $("btnSynth");
   btn.disabled = true;
   $("jobBox").classList.remove("hide");
   $("audioBox").innerHTML = "";
   try {
     const {job_id} = await api("/api/synth", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({mode, script: currentScript, preset: $("preset").value,
-        emotion_mode: $("emotionMode").value, intensity: +$("intensity").value, speed: +$("speed").value})});
+      body: JSON.stringify({script: currentScript, speed: +$("speed").value})});
     jobTimer = setInterval(async () => {
       let job;
       try { job = await api(`/api/job/${job_id}`); } catch (e) { return; }
@@ -306,13 +259,13 @@ async function synth(mode) {
   }
 }
 
-// ---------- 项目一：专属声音 ----------
+// ---------- 专属声音 ----------
 async function loadVoiceInfo() {
   try {
     const v = ((await api("/api/status")).voice) || {};
     $("voiceInfo").innerHTML = v.sovits_weights
       ? `当前专属声音：<b>${esc(v.exp_name)}</b>（${esc(v.trained_at || "")} 训练）`
-      : "还没有专属声音 —— 先在下方「声音训练」完成训练。";
+      : "还没有专属声音 —— 先在下方「声音训练」完成训练；现在会先用默认参考音色零样本克隆朗读。";
   } catch (e) {}
 }
 

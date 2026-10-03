@@ -6,18 +6,20 @@
   GET /health          服务健康检查（含当前模型、设备、支持语言等）
   GET /list_resources  可用参考音频 / GPT、SoVITS 权重列表
   GET /ref_audio       参考音频试听
-服务就绪后自动打开浏览器。
+  GET /control         已禁用 exit/restart（防止误触杀掉引擎），调用无效果
 
 启动方式与 api_v2.py 完全一致（参数也一致）：
   python api_server.py -a 127.0.0.1 -p 9885 -c GPT_SoVITS/configs/tts_infer.yaml
 """
 import os
 import sys
-import threading
-import webbrowser
 
 # 导入 api_v2 会解析同一套命令行参数并加载 TTS 模型（必须先于本文件其他路由定义）
 import api_v2
+
+# 本机部署安全补丁：api_v2 自带 GET /control?command=exit|restart 会让引擎进程自杀/重生，
+# 本机上任何误触或端口扫描都可能把引擎静默杀掉（实测发生过），这里直接禁用。
+api_v2.handle_control = lambda command: None
 
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
@@ -129,19 +131,11 @@ async def ref_audio(path: str = None):
 
 @api_v2.APP.on_event("startup")
 async def _open_browser_when_ready():
+    # 引擎由工作台按需拉起，不再自动弹控制台页面（需要时手动访问）
     host = api_v2.host
     if host in (None, "", "None", "0.0.0.0", "::"):
         host = "127.0.0.1"
-
-    def _open():
-        url = f"http://{host}:{api_v2.port}/"
-        print(f"引导式控制台 -> {url} （如未自动打开，请手动访问）")
-        try:
-            webbrowser.open(url)
-        except Exception as e:
-            print(f"自动打开浏览器失败：{e}")
-
-    threading.Timer(1.5, _open).start()
+    print(f"引导式控制台 -> http://{host}:{api_v2.port}/ （如需使用请手动访问）")
 
 
 if __name__ == "__main__":

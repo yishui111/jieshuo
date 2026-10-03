@@ -1,7 +1,8 @@
-# 统一工作台配置
+# 项目二 · 情感解说 工作台配置
 # 说明：
 #  - deepseek.api_key 在这里填；留空则读环境变量 DEEPSEEK_API_KEY
 #  - 没有 DeepSeek key 时自动回退本地 Ollama 生成解说词
+#  - 本文件即 config.yaml 的模板；首次部署复制为 config.yaml 即可
 
 deepseek:
   api_base: "https://api.deepseek.com/v1"
@@ -12,28 +13,23 @@ deepseek:
   fallback_ollama:
     enabled: true
     host: "http://127.0.0.1:11434"
-    model: "qwen3.5:4b"                     # 16GB 显存建议 4b；显存充裕可换 qwen3:14b
+    model: "qwen2.5:7b-16k"                 # 本机 Ollama 里已有的模型
 
 workbench:
   host: "127.0.0.1"
-  port: 9610
+  port: 9620
 
 engines:
-  index_tts:                                # 项目二：情感解说引擎（IndexTTS-2.5）
+  index_tts:                                # 情感解说引擎（IndexTTS-2.5）
     label: "情感解说引擎 IndexTTS-2.5"
-    cmd: "../index-tts/.venv/Scripts/python.exe -u tts_server.py --version 2.5 --model_dir checkpoints/IndexTTS-2.5 --port 9602"
-    cwd: "../index-tts"
+    cmd: ".venv/Scripts/python.exe -u tts_server.py --version 2.5 --model_dir checkpoints/IndexTTS-2.5 --port 9602"
+    cwd: "index-tts"
     health: "http://127.0.0.1:9602/health"
     ready_field: "ok"
-  gpt_sovits:                               # 项目一：专属声音引擎（GPT-SoVITS 推理 API）
-    label: "专属声音引擎 GPT-SoVITS"
-    cmd: ".venv/Scripts/python.exe api_server.py -a 127.0.0.1 -p 9885"
-    cwd: "../GPT-SoVITS"
-    health: "http://127.0.0.1:9885/health"
 
 tts:
   index_tts:
-    spk_audio: "../index-tts/asset/zero_shot_prompt.wav"
+    spk_audio: "index-tts/asset/zero_shot_prompt.wav"
     lang: "zh_CN"
     interval_silence_ms: 260
     timeout_s: 600
@@ -45,21 +41,7 @@ tts:
       惊喜:     { emotion: "惊喜", vector: [0.6, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0] }
       低落:     { emotion: "低落", vector: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0] }
       平静:     { emotion: "平静", vector: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8] }
-  gpt_sovits:
-    text_lang: "zh"
-    prompt_lang: "zh"
-    timeout_s: 600
-
-training:
-  default_exp_name: "我的解说声音"
-  sovits_epochs: 12
-  gpt_epochs: 15
-  sovits_batch_size: 6
-  gpt_batch_size: 12
-  save_every_epoch: 4
 
 paths:
-  materials_dir: "../训练素材"              # ← 把你的激情解说录音放这里
-  outputs_dir: "../解说音频"                 # 生成音频的保存位置（根目录解说音频）
+  outputs_dir: "解说音频"                   # 生成音频的保存位置（本项目\解说音频）
   model_cache_dir: "model_cache"            # HF/ModelScope 缓存本地化（不占C盘）
-  voice_config: "voice_config.json"         # 当前启用的专属声音（训练完成后写入）

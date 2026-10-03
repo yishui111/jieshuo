@@ -1,54 +1,51 @@
 # =====================================================================
 # 本仓库只提交我自己写的脚本和文档。
-# 引擎本体、.venv 虚拟环境、模型权重、素材与产物一律不入库，按 README 重新部署。
+# 引擎本体、.venv 虚拟环境、模型权重、素材与产物一律不入库，按各项目 README 重新部署。
 # =====================================================================
 
-# ---- IndexTTS-2.5（上游：https://github.com/index-tts/index-tts）----
-/index-tts/*
-!/index-tts/tts_server.py
+# ---- 项目一引擎 GPT-SoVITS（上游：https://github.com/RVC-Boss/GPT-SoVITS）----
+/项目一-专属声音/GPT-SoVITS/*
+!/项目一-专属声音/GPT-SoVITS/api_server.py
+!/项目一-专属声音/GPT-SoVITS/webui/
+!/项目一-专属声音/GPT-SoVITS/requirements_win_deploy.txt
+!/项目一-专属声音/GPT-SoVITS/启动_API.bat
+!/项目一-专属声音/GPT-SoVITS/启动_WebUI.bat
+!/项目一-专属声音/GPT-SoVITS/启动_演示.bat
+!/项目一-专属声音/GPT-SoVITS/关闭服务.bat
+!/项目一-专属声音/GPT-SoVITS/参考音频/
 
-# ---- GPT-SoVITS（上游：https://github.com/RVC-Boss/GPT-SoVITS）----
-/GPT-SoVITS/*
-!/GPT-SoVITS/api_server.py
-!/GPT-SoVITS/webui/
-!/GPT-SoVITS/requirements_win_deploy.txt
+# ---- 项目二引擎 IndexTTS-2.5（上游：https://github.com/index-tts/index-tts）----
+/项目二-情感解说/index-tts/*
+!/项目二-情感解说/index-tts/tts_server.py
 
-# ---- 统一工作台（自己写的部分全部入库；配置与产物除外）----
-/工作台/*
-!/工作台/server.py
-!/工作台/train_voice.py
-!/工作台/deepseek_client.py
-!/工作台/engines.py
-!/工作台/约束文档.md
-!/工作台/config.example.yaml
-!/工作台/static/
-/工作台/config.yaml       # 里面有 DeepSeek API key，不入库
-/工作台/voice_config.json
-/工作台/outputs/
-/工作台/logs/
-/工作台/训练数据/
-/工作台/model_cache/
+# ---- 项目一：训练素材（用户录音不入库，保留说明文件）----
+/项目一-专属声音/训练素材/*
+!/项目一-专属声音/训练素材/放录音到这里.txt
 
-# ---- 训练素材（用户录音不入库，保留说明文件）----
-/训练素材/*
-!/训练素材/放录音到这里.txt
+# ---- 各项目本机配置与运行产物（不入库）----
+项目一-专属声音/config.yaml
+项目一-专属声音/voice_config.json
+项目一-专属声音/训练数据/
+项目一-专属声音/model_cache/
+项目二-情感解说/config.yaml
+项目二-情感解说/model_cache/
 
-# ---- 环境与产物（本地部署时生成/下载，一律不入库）----
 .venv/
 venv/
-pretrained_models/
-checkpoints/
-asset/
-hf_cache/
 logs/
+hf_cache/
+checkpoints/
 __pycache__/
 *.log
-演示音频/
+
+# ---- 生成音频不入库 ----
 解说音频/
 
 # ---- 需求原稿不入库 ----
 部署文档.txt
 
 # ---- 测试产物（截图/音频/视频不入库，测试报告入库）----
-/测试/*
-!/测试/测试报告.md
+/项目一-专属声音/测试/*
+!/项目一-专属声音/测试/测试报告.md
+/项目二-情感解说/测试/*
+!/项目二-情感解说/测试/测试报告.md
